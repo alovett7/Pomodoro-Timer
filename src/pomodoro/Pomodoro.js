@@ -1,225 +1,182 @@
 import React, { useState } from "react";
-import classNames from "../utils/class-names";
 import useInterval from "../utils/useInterval";
-import { minutesToDuration, secondsToDuration } from "../utils/duration";
+import FocusSection from "./focusSession";
+import IncrementButtons from "./incrementButtons.js";
+import PlayStopButtons from "./playstopbutton";
 
 function Pomodoro() {
-  // Timer starts out paused
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [focusDuration, setFocusDuration] = useState(25);
-  const [breakDuration, setBreakDuration] = useState(5);
-  const [timeRemaining, setTimeRemaining] = useState(25 * 60);
-  const [session, setSession] = useState({
-    label: "Focusing",
-    duration: minutesToDuration(focusDuration),
-    timeTotal: focusDuration * 60,
-    timeRemaining: focusDuration * 60,
-    percentComplete: 0,
-  });
-  const [isSessionActive, setIsSessionActive] = useState(false);
+  // Initial values of focus duration, break duration, timerRunning & session countdown
+  const initialStates = {
+    focusDuration: 25,
+    breakDuration: 5,
+    isTimerRunning: false,
+    sessionCountdown: 0,
+    focusSessionActive: false,
+    sessionActive: false,
+    ariaValue: 0,
+  };
+  // Initialize state for focus bar
+  const [ariaValue, setAriaValue] = useState(initialStates.ariaValue);
 
-  function nextTick(prevState) {
-    const timeRemaining = Math.max(0, prevState.timeRemaining - 1);
-    const elapsedSeconds = prevState.timeTotal - timeRemaining;
-    return {
-      ...prevState,
-      timeRemaining,
-      percentComplete: (elapsedSeconds / prevState.timeTotal) * 100,
-    };
-  }
-  function nextSession(focusDuration, breakDuration) {
-    return (currentSession) => {
-      if (currentSession.label === "Focusing") {
-        return {
-          label: "On Break",
-          duration: minutesToDuration(breakDuration),
-          timeTotal: breakDuration * 60,
-          timeRemaining: breakDuration * 60,
-          percentComplete: 0,
-        };
+  // Initialize timer state and set to zero so timer starts out paused
+  const [isTimerRunning, setIsTimerRunning] = useState(
+    initialStates.isTimerRunning
+  );
+
+  // Initialize focus state and set default to 25 minutes
+  const [focusDuration, setFocusDuration] = useState(
+    initialStates.focusDuration
+  );
+
+  // Initialize break state and set default to 5 minutes
+  const [breakDuration, setBreakDuration] = useState(
+    initialStates.breakDuration
+  );
+
+  // Initialize state to update session timer
+  const [sessionCountdown, setSessionCountdown] = useState(
+    initialStates.sessionCountdown
+  );
+
+  // Initialize state to track when focus and break sessions are active
+  const [focusSessionActive, setFocusSessionActive] = useState(
+    initialStates.focusSessionActive
+  );
+
+  //Initialize state for when session it active
+  const [sessionActive, setSessionActive] = useState(
+    initialStates.sessionActive
+  );
+
+  // Handle increment button clicks
+  const handleIncrementClick = ({ target }) => {
+    /*
+    ISSUE: The icons on the buttons and the buttons themselves return different values,
+    so I only place handle event on buttons themselves.
+    */
+
+    // Handling decrease and increase buttons for focus duration and break duration when not in session
+    if (!focusSessionActive && sessionCountdown === 0) {
+      switch (target["name"]) {
+        case "decrease-focus":
+          setFocusDuration((currentFocusDuration) =>
+            Math.max(5, currentFocusDuration - 5)
+          );
+          break;
+        case "increase-focus":
+          setFocusDuration((currentFocusDuration) =>
+            Math.min(60, currentFocusDuration + 5)
+          );
+          break;
+        case "decrease-break":
+          setBreakDuration((currentBreakDuration) =>
+            Math.max(1, currentBreakDuration - 1)
+          );
+          break;
+        case "increase-break":
+          setBreakDuration((currentBreakDuration) =>
+            Math.min(15, currentBreakDuration + 1)
+          );
+          break;
+        default:
+          break;
       }
-      return {
-        label: "Focusing",
-        duration: minutesToDuration(focusDuration),
-        timeTotal: focusDuration * 60,
-        timeRemaining: focusDuration * 60,
-        percentComplete: 0,
-      };
-    };
-  }
+    }
+  };
 
   useInterval(
     () => {
-      // ToDo: Implement what should happen when the timer is running
-      if (session.timeRemaining === 0) {
-        new Audio(
-          `${process.env.PUBLIC_URL}/alarm/submarine-dive-horn.mp3`
-        ).play();
-        return setSession(nextSession(focusDuration, breakDuration));
+      // Completed: Implement what should happen when the timer is running
+
+      // Functionality for the progress bar
+      if (focusSessionActive) {
+        setAriaValue((sessionCountdown / (focusDuration * 60)) * 100);
+      } else if (!focusSessionActive & (sessionCountdown !== 0)) {
+        setAriaValue((sessionCountdown / (breakDuration * 60)) * 100);
       }
-      return setSession(nextTick);
+
+      /*
+      If session is active and countdown equals focus duration, set focus session to false and start counting break duration.
+      Is focus session is false and countdown equals break duration, set focus session to true and count to focus duration.
+      Else, increment countdown by one each second.
+      */
+      setSessionCountdown((currentSessionCountdown) => {
+        if (
+          focusSessionActive &&
+          currentSessionCountdown === focusDuration * 60
+        ) {
+          new Audio(`https://bigsoundbank.com/UPLOAD/mp3/1482.mp3`).play();
+          setFocusSessionActive(!focusSessionActive);
+          return (currentSessionCountdown = 0);
+        } else if (
+          !focusSessionActive &&
+          currentSessionCountdown === breakDuration * 60
+        ) {
+          new Audio(`https://bigsoundbank.com/UPLOAD/mp3/1482.mp3`).play();
+          setFocusSessionActive(!focusSessionActive);
+          return (currentSessionCountdown = 0);
+        } else {
+          return (currentSessionCountdown += 1);
+        }
+      });
     },
     isTimerRunning ? 1000 : null
   );
+
+  // This function stops and starts the timer
   function playPause() {
-    if (isSessionActive === false) {
-      setIsSessionActive(true);
-      setSession({
-        label: "Focusing",
-        duration: minutesToDuration(focusDuration),
-        timeTotal: focusDuration * 60,
-        timeRemaining: focusDuration * 60,
-        percentComplete: 0,
-      });
-    }
     setIsTimerRunning((prevState) => !prevState);
   }
-  function decreaseFocus() {
-    setFocusDuration((lastFocus) => lastFocus - 5);
-  }
-  function increaseFocus() {
-    setFocusDuration((lastFocus) => lastFocus + 5);
-  }
-  function decreaseBreak() {
-    setBreakDuration((lastFocus) => lastFocus - 1);
-  }
-  function increaseBreak() {
-    setBreakDuration((lastFocus) => lastFocus + 1);
-  }
-  function stopSession() {
-    setIsTimerRunning(false);
-  }
+
+  // Handle what happens when the play/pause button is clicked
+  const handlePlayPause = ({ target }) => {
+    // Set session to active when play is clicked
+    if (!sessionActive) setSessionActive(true);
+
+    // If the timer is not running and the current focus session is not active, start timer and focus session
+    if (!focusSessionActive && sessionCountdown === 0) {
+      setFocusSessionActive((currentFocusSession) => {
+        return !currentFocusSession;
+      });
+    }
+
+    // Pause and play the timer
+    playPause();
+  };
+
+  // Handle when stop button is clicked
+  const handleStop = ({ target }) => {
+    // Return all states to their initial when stop button is clicked
+    setIsTimerRunning(initialStates.isTimerRunning);
+    setFocusDuration(initialStates.focusDuration);
+    setBreakDuration(initialStates.breakDuration);
+    setSessionCountdown(
+      (currentSessionCountdown) => initialStates.sessionCountdown
+    );
+    setFocusSessionActive(initialStates.focusSessionActive);
+    setSessionActive(initialStates.sessionActive);
+  };
 
   return (
     <div className="pomodoro">
-      <div className="row">
-        <div className="col">
-          <div className="input-group input-group-lg mb-2">
-            <span className="input-group-text" data-testid="duration-focus">
-              {/* TODO: Update this text to display the current focus session duration */}
-              label={`Focus Duration: ${minutesToDuration(focusDuration)}`}
-            </span>
-            <div className="input-group-append">
-              {/* TODO: Implement decreasing focus duration and disable during a focus or break session */}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                data-testid="decrease-focus"
-                onClick={decreaseFocus}
-                disabled={focusDuration <= 5 || isTimerRunning ? true : false}
-              >
-                <span className="oi oi-minus" />
-              </button>
-              {/* TODO: Implement increasing focus duration  and disable during a focus or break session */}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                data-testid="increase-focus"
-                onClick={increaseFocus}
-                disabled={focusDuration >= 60 || isTimerRunning ? true : false}
-              >
-                <span className="oi oi-plus" />
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="col">
-          <div className="float-right">
-            <div className="input-group input-group-lg mb-2">
-              <span className="input-group-text" data-testid="duration-break">
-                {/* TODO: Update this text to display the current break session duration */}
-                label={`Break Duration: ${minutesToDuration(breakDuration)}`}
-              </span>
-              <div className="input-group-append">
-                {/* TODO: Implement decreasing break duration and disable during a focus or break session*/}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  data-testid="decrease-break"
-                  onClick={decreaseBreak}
-                  disabled={breakDuration <= 1 || isTimerRunning ? true : false}
-                >
-                  <span className="oi oi-minus" />
-                </button>
-                {/* TODO: Implement increasing break duration and disable during a focus or break session*/}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  data-testid="increase-break"
-                  onClick={increaseBreak}
-                  disabled={
-                    breakDuration >= 15 || isTimerRunning ? true : false
-                  }
-                >
-                  <span className="oi oi-plus" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="row">
-        <div className="col">
-          <div
-            className="btn-group btn-group-lg mb-2"
-            role="group"
-            aria-label="Timer controls"
-          >
-            <button
-              type="button"
-              className="btn btn-primary"
-              data-testid="play-pause"
-              title="Start or pause timer"
-              onClick={playPause}
-            >
-              <span
-                className={classNames({
-                  oi: true,
-                  "oi-media-play": !isTimerRunning,
-                  "oi-media-pause": isTimerRunning,
-                })}
-              />
-            </button>
-            {/* TODO: Implement stopping the current focus or break session and disable when there is no active session */}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              title="Stop the session"
-              onClick={stopSession}
-              disabled={!isSessionActive}
-            >
-              <span className="oi oi-media-stop" />
-            </button>
-          </div>
-        </div>
-      </div>
-      <div>
-        {/* TODO: This area should show only when a focus or break session is running or pauses */}
-        <div className="row mb-2">
-          <div className="col">
-            {/* TODO: Update message below to include current session (Focusing or On Break) and total duration */}
-            <h2 data-testid="session-title">{` ${session.label} for ${session.duration} minutes`}</h2>
-            {/* TODO: Update message below to include time remaining in the current session */}
-            <p className="lead" data-testid="session-sub-title">
-              {`${secondsToDuration(session.timeRemaining)} remaining`}
-            </p>
-          </div>
-        </div>
-        <div className="row mb-2">
-          <div className="col">
-            <div className="progress" style={{ height: "20px" }}>
-              <div
-                className="progress-bar"
-                role="progressbar"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={session.percentComplete} // TODO: Increase aria-valuenow as elapsed time increases
-                style={{ width: `${session.percentComplete}` }} // TODO: Increase width % as elapsed time increases
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <IncrementButtons
+        focusDuration={focusDuration}
+        breakDuration={breakDuration}
+        handleIncrementClick={handleIncrementClick}
+      />
+      <PlayStopButtons
+        isTimerRunning={isTimerRunning}
+        handlePlayPause={handlePlayPause}
+        handleStop={handleStop}
+      />
+      <FocusSection
+        sessionActive={sessionActive}
+        focusDuration={focusDuration}
+        breakDuration={breakDuration}
+        focusSessionActive={focusSessionActive}
+        sessionCountdown={sessionCountdown}
+        ariaValue={ariaValue}
+      />
     </div>
   );
 }
